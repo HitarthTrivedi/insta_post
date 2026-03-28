@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Reel Video Combiner | InstaGen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-elements">
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="landing-container" style="padding-top: 2rem; min-height: auto;">
+        <div class="generator-layout">
+            <div class="sidebar-controls">
+                <a href="index.html" class="back-link">&larr; Back to Home</a>
+                <h2 style="margin-bottom: 2rem; font-size: 1.5rem;">Video Combiner</h2>
+                
+                <div class="control-group">
+                    <label>Reel Layout</label>
+                    <select id="layoutSelect" class="input-text" style="padding: 0.75rem;">
+                        <option value="single">Single Video (Centered)</option>
+                        <option value="stacked">Two Videos (Top & Bottom)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Background Image (JPG/PNG)</label>
+                    <div class="file-input-wrapper" id="bgDropBox" style="padding: 1.5rem 1rem;">
+                        <input type="file" id="bgInput" accept="image/*">
+                        <span class="file-input-text" id="bgInputText">Upload Background Image</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label id="video1Label">Foreground Video (MP4)</label>
+                    <div class="file-input-wrapper" id="videoDropBox" style="padding: 1.5rem 1rem;">
+                        <input type="file" id="videoInput" accept="video/*">
+                        <span class="file-input-text" id="videoInputText">Upload Video File</span>
+                    </div>
+                </div>
+
+                <div class="control-group" id="video2Group" style="display: none;">
+                    <label>Bottom Video (MP4)</label>
+                    <div class="file-input-wrapper" id="video2DropBox" style="padding: 1.5rem 1rem;">
+                        <input type="file" id="video2Input" accept="video/*">
+                        <span class="file-input-text" id="video2InputText">Upload Bottom Video File</span>
+                    </div>
+                </div>
+
+                <br><br>
+                <button class="btn" id="previewBtn" onclick="togglePlayPreview()" style="background: rgba(255,255,255,0.1);">Preview Video</button>
+                <button class="btn" id="downloadBtn" onclick="startRecording()" style="background: var(--secondary-gradient);">Generate & Download Video</button>
+                <p id="statusText" style="margin-top: 1rem; color: #f09433; font-weight: 600; text-align: center; display: none;">Recording... Please wait until video finishes.</p>
+            </div>
+
+            <div class="preview-area">
+                <div class="insta-reel-canvas" id="reelCanvas">
+                    <!-- Background Image -->
+                    <img id="reelBackground" crossorigin="anonymous" class="reel-background" src="https://images.unsplash.com/photo-1616710486027-e45fba522513?auto=format&fit=crop&q=80&w=1000" alt="Background">
+                    
+                    <!-- Video Container -->
+                    <div class="reel-video-container" id="video1Container">
+                        <video id="reelVideo" loop playsinline>
+                            <source src="" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div id="videoPlaceholder" style="background: rgba(0,0,0,0.5); width: 100%; height: 300px; display: flex; align-items: center; justify-content: center; color: white;">Upload Video</div>
+                    </div>
+
+                    <!-- Video 2 Container (Stacked) -->
+                    <div class="reel-video-container stacked-bottom" id="video2Container" style="display: none;">
+                        <video id="reelVideo2" loop playsinline>
+                            <source src="" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div id="video2Placeholder" style="background: rgba(0,0,0,0.5); width: 100%; height: 300px; display: flex; align-items: center; justify-content: center; color: white;">Upload Bottom Video</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Canvas used for generating the final video output -->
+    <canvas id="renderCanvas" width="1080" height="1920" style="display: none;"></canvas>
+
+    <script>
+        const layoutSelect = document.getElementById('layoutSelect');
+        const video2Group = document.getElementById('video2Group');
+        const video1Label = document.getElementById('video1Label');
+        const video1Container = document.getElementById('video1Container');
+        const video2Container = document.getElementById('video2Container');
+        const video2Input = document.getElementById('video2Input');
+        const reelVideo2 = document.getElementById('reelVideo2');
+        const video2Placeholder = document.getElementById('video2Placeholder');
+        const video2InputText = document.getElementById('video2InputText');
+
+        const bgInput = document.getElementById('bgInput');
+        const videoInput = document.getElementById('videoInput');
+
+        const reelBackground = document.getElementById('reelBackground');
+        const reelVideo = document.getElementById('reelVideo');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        const bgInputText = document.getElementById('bgInputText');
+        const videoInputText = document.getElementById('videoInputText');
+        const statusText = document.getElementById('statusText');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        layoutSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'stacked') {
+                video2Group.style.display = 'block';
+                video1Label.textContent = 'Top Video (MP4)';
+                video1Container.classList.add('stacked-top');
+                video2Container.style.display = 'block';
+            } else {
+                video2Group.style.display = 'none';
+                video1Label.textContent = 'Foreground Video (MP4)';
+                video1Container.classList.remove('stacked-top');
+                video2Container.style.display = 'none';
+            }
+        });
+
+        bgInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                reelBackground.src = url;
+                bgInputText.textContent = file.name;
+            }
+        });
+
+        videoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                reelVideo.src = url;
+                videoPlaceholder.style.display = 'none';
+                reelVideo.style.display = 'block';
+                reelVideo.load();
+                videoInputText.textContent = file.name;
+            }
+        });
+
+        video2Input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                reelVideo2.src = url;
+                video2Placeholder.style.display = 'none';
+                reelVideo2.style.display = 'block';
+                reelVideo2.load();
+                video2InputText.textContent = file.name;
+            }
+        });
+
+        function togglePlayPreview() {
+            if (reelVideo.src && !reelVideo.src.endsWith(window.location.pathname)) {
+                if(reelVideo.paused) {
+                    reelVideo.play();
+                    if (layoutSelect.value === 'stacked' && reelVideo2.src && !reelVideo2.src.endsWith(window.location.pathname)) {
+                        reelVideo2.play();
+                    }
+                } else {
+                    reelVideo.pause();
+                    if (layoutSelect.value === 'stacked') {
+                        reelVideo2.pause();
+                    }
+                }
+            } else {
+                alert("Please upload a video first!");
+            }
+        }
+        
+        if (!reelVideo.getAttribute('src')) {
+            reelVideo.style.display = 'none';
+        }
+        if (!reelVideo2.getAttribute('src')) {
+            reelVideo2.style.display = 'none';
+        }
+
+        // --- Video Generation Logic ---
+        let mediaRecorder;
+        let recordedChunks = [];
+        let animationFrameId;
+
+        function drawRoundedVideo(ctx, video, x, y, width, height) {
+            ctx.save();
+            const borderRadius = 24;
+            
+            ctx.beginPath();
+            ctx.moveTo(x + borderRadius, y);
+            ctx.lineTo(x + width - borderRadius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+            ctx.lineTo(x + width, y + height - borderRadius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+            ctx.lineTo(x + borderRadius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+            ctx.lineTo(x, y + borderRadius);
+            ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+            ctx.closePath();
+            
+            ctx.lineWidth = 12;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.stroke();
+            
+            ctx.clip();
+            ctx.drawImage(video, x, y, width, height);
+            ctx.restore();
+        }
+
+        // Draw loop that composites the background and foreground HTML elements onto a hidden canvas
+        function drawFrame(canvas, ctx) {
+            // Draw background image using object-fit: cover logic
+            const imgWidth = reelBackground.naturalWidth || 1080;
+            const imgHeight = reelBackground.naturalHeight || 1920;
+            const imgAspect = imgWidth / imgHeight;
+            const canvasAspect = canvas.width / canvas.height;
+            
+            let drawWidth, drawHeight, drawX, drawY;
+            if (imgAspect > canvasAspect) { // Image is wider, scale to match height
+                drawHeight = canvas.height;
+                drawWidth = canvas.height * imgAspect;
+                drawX = (canvas.width - drawWidth) / 2;
+                drawY = 0;
+            } else { // Image is taller, scale to match width
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / imgAspect;
+                drawX = 0;
+                drawY = (canvas.height - drawHeight) / 2;
+            }
+            
+            ctx.drawImage(reelBackground, drawX, drawY, drawWidth, drawHeight);
+
+            const isStacked = layoutSelect.value === 'stacked';
+            if (isStacked) {
+                if(reelVideo.readyState >= 2) {
+                    const aspect = reelVideo.videoHeight / reelVideo.videoWidth;
+                    const targetWidth = canvas.width * 0.9;
+                    const targetHeight = targetWidth * aspect;
+                    const targetX = (canvas.width - targetWidth) / 2;
+                    const targetY = (canvas.height / 2 - targetHeight) / 2;
+                    drawRoundedVideo(ctx, reelVideo, targetX, targetY, targetWidth, targetHeight);
+                }
+                if(reelVideo2.readyState >= 2) {
+                    const aspect = reelVideo2.videoHeight / reelVideo2.videoWidth;
+                    const targetWidth = canvas.width * 0.9;
+                    const targetHeight = targetWidth * aspect;
+                    const targetX = (canvas.width - targetWidth) / 2;
+                    const targetY = canvas.height / 2 + (canvas.height / 2 - targetHeight) / 2;
+                    drawRoundedVideo(ctx, reelVideo2, targetX, targetY, targetWidth, targetHeight);
+                }
+            } else {
+                if(reelVideo.readyState >= 2) {
+                    const aspect = reelVideo.videoHeight / reelVideo.videoWidth;
+                    const targetWidth = canvas.width * 0.8;
+                    const targetHeight = targetWidth * aspect;
+                    const targetX = (canvas.width - targetWidth) / 2;
+                    const targetY = (canvas.height - targetHeight) / 2;
+                    drawRoundedVideo(ctx, reelVideo, targetX, targetY, targetWidth, targetHeight);
+                }
+            }
+
+            animationFrameId = requestAnimationFrame(() => drawFrame(canvas, ctx));
+        }
+
+        async function startRecording() {
+            const isStacked = layoutSelect.value === 'stacked';
+            if (!reelVideo.src || reelVideo.src.endsWith(window.location.pathname)) {
+                alert("Please upload " + (isStacked ? "the top video" : "a video") + " first to download.");
+                return;
+            }
+            if (isStacked && (!reelVideo2.src || reelVideo2.src.endsWith(window.location.pathname))) {
+                alert("Please upload the bottom video.");
+                return;
+            }
+            if (!reelBackground.src) {
+                alert("Please upload a background photo.");
+                return;
+            }
+
+            const canvas = document.getElementById('renderCanvas');
+            const ctx = canvas.getContext('2d');
+
+            statusText.style.display = 'block';
+            downloadBtn.disabled = true;
+            downloadBtn.style.opacity = '0.5';
+
+            // We need to wait for the video to load fully to grab its stream
+            reelVideo.currentTime = 0;
+            reelVideo.loop = false; // Important: disable loop to stop recording when finished!
+            if (isStacked) {
+                reelVideo2.currentTime = 0;
+                reelVideo2.loop = false;
+            }
+            
+            await reelVideo.play();
+            if (isStacked) {
+                await reelVideo2.play();
+            }
+
+            // Prepare the stream
+            const canvasStream = canvas.captureStream(30); // 30 FPS capturing
+            
+            // Try to extract audio from the video elements and merge it
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const dest = audioCtx.createMediaStreamDestination();
+                
+                const getVideoStream = (vid) => vid.captureStream ? vid.captureStream() : (vid.mozCaptureStream ? vid.mozCaptureStream() : null);
+                
+                let hasAudio = false;
+                const vStream1 = getVideoStream(reelVideo);
+                if (vStream1 && vStream1.getAudioTracks().length > 0) {
+                    const source1 = audioCtx.createMediaStreamSource(new MediaStream([vStream1.getAudioTracks()[0]]));
+                    source1.connect(dest);
+                    hasAudio = true;
+                }
+                
+                if (isStacked) {
+                    const vStream2 = getVideoStream(reelVideo2);
+                    if (vStream2 && vStream2.getAudioTracks().length > 0) {
+                        const source2 = audioCtx.createMediaStreamSource(new MediaStream([vStream2.getAudioTracks()[0]]));
+                        source2.connect(dest);
+                        hasAudio = true;
+                    }
+                }
+                
+                if (hasAudio && dest.stream.getAudioTracks().length > 0) {
+                    canvasStream.addTrack(dest.stream.getAudioTracks()[0]);
+                } else if (vStream1 && vStream1.getAudioTracks().length > 0) {
+                    canvasStream.addTrack(vStream1.getAudioTracks()[0]);
+                }
+            } catch (err) {
+                console.warn("Could not capture and mix audio stream natively.", err);
+            }
+
+            // Create MediaRecorder (outputs standard browser compatible MP4 or WEBM)
+            const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+            try {
+                mediaRecorder = new MediaRecorder(canvasStream, options);
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(canvasStream);
+            }
+
+            recordedChunks = [];
+            mediaRecorder.ondataavailable = function(e) {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+
+            mediaRecorder.onstop = function() {
+                // Compile the data chunks into a single standard video Blob
+                const blob = new Blob(recordedChunks, {
+                    type: mediaRecorder.mimeType || 'video/webm'
+                });
+                const url = URL.createObjectURL(blob);
+                
+                // Let the user download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `combined_video_${Date.now()}.webm`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(url);
+                a.remove();
+
+                // Clean up UI
+                statusText.style.display = 'none';
+                downloadBtn.disabled = false;
+                downloadBtn.style.opacity = '1';
+                reelVideo.loop = true; // reset so preview is loopable again
+                if (isStacked) {
+                    reelVideo2.loop = true;
+                }
+                cancelAnimationFrame(animationFrameId);
+            };
+
+            // Start Drawing and Recording
+            drawFrame(canvas, ctx);
+            mediaRecorder.start();
+
+            let finishedCount = 0;
+            const requiredFinished = isStacked ? 2 : 1;
+            
+            const onVideoEnded = () => {
+                finishedCount++;
+                if(finishedCount >= requiredFinished && mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+            };
+
+            // Stop recording when the video(s) naturally finish playing
+            reelVideo.onended = onVideoEnded;
+            if (isStacked) {
+                reelVideo2.onended = onVideoEnded;
+            }
+        }
+    </script>
+</body>
+</html>

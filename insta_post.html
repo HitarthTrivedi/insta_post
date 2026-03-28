@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Post Image Combiner | InstaGen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-elements">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="landing-container" style="padding-top: 2rem; min-height: auto;">
+        <div class="generator-layout">
+            <div class="sidebar-controls">
+                <a href="index.html" class="back-link">&larr; Back to Home</a>
+                <h2 style="margin-bottom: 2rem; font-size: 1.5rem;">Post Details</h2>
+                
+                <div class="control-group">
+                    <label>Background Image (JPG/PNG)</label>
+                    <div class="file-input-wrapper" id="bgDropBox" style="padding: 1.5rem 1rem;">
+                        <input type="file" id="bgInput" accept="image/*">
+                        <span class="file-input-text" id="bgInputText">Upload Background Image</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Foreground Screenshot / Image</label>
+                    <div class="file-input-wrapper" id="imageDropBox" style="padding: 1.5rem 1rem;">
+                        <input type="file" id="imageInput" accept="image/*">
+                        <span class="file-input-text" id="imageInputText">Upload Screenshot File</span>
+                    </div>
+                </div>
+
+                <button class="btn" onclick="generatePost()" style="margin-top: 2rem;">Download Output Image</button>
+            </div>
+
+            <div class="preview-area">
+                <div class="insta-post-canvas" id="postCanvas">
+                    <!-- Background Image -->
+                    <img id="postBackground" crossorigin="anonymous" class="post-background" src="https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&q=80&w=1000" alt="Background">
+                    
+                    <!-- Screenshot Container -->
+                    <div class="post-screenshot-container">
+                        <img src="https://placehold.co/600x600/2a2a2a/ffffff?text=Upload+Screenshot" crossorigin="anonymous" id="imagePreview" alt="Post Request">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Canvas for High-Resolution Post Generation -->
+    <canvas id="renderCanvas" width="1080" height="1350" style="display: none;"></canvas>
+
+    <script>
+        const bgInput = document.getElementById('bgInput');
+        const imageInput = document.getElementById('imageInput');
+
+        const postBackground = document.getElementById('postBackground');
+        const imagePreview = document.getElementById('imagePreview');
+        const bgInputText = document.getElementById('bgInputText');
+        const imageInputText = document.getElementById('imageInputText');
+
+        bgInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                postBackground.src = url;
+                bgInputText.textContent = file.name;
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                imagePreview.src = url;
+                imageInputText.textContent = file.name;
+            }
+        });
+
+        function generatePost() {
+            const canvas = document.getElementById('renderCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Draw background image using object-fit: cover logic
+            const bgWidth = postBackground.naturalWidth || 1080;
+            const bgHeight = postBackground.naturalHeight || 1350;
+            const bgAspect = bgWidth / bgHeight;
+            const canvasAspect = canvas.width / canvas.height;
+            
+            let drawWidth, drawHeight, drawX, drawY;
+            if (bgAspect > canvasAspect) { // Background is wider
+                drawHeight = canvas.height;
+                drawWidth = canvas.height * bgAspect;
+                drawX = (canvas.width - drawWidth) / 2;
+                drawY = 0;
+            } else { // Background is taller
+                drawWidth = canvas.width;
+                drawHeight = canvas.width / bgAspect;
+                drawX = 0;
+                drawY = (canvas.height - drawHeight) / 2;
+            }
+            
+            // Draw Background
+            ctx.drawImage(postBackground, drawX, drawY, drawWidth, drawHeight);
+
+            // Draw Screenshot Container (if screenshot exists/is loaded)
+            if (imagePreview.naturalWidth > 0 && imagePreview.src.indexOf('placehold.co') === -1) {
+                const targetWidth = canvas.width * 0.8;
+                
+                // Calculate dynamic height based on screenshot aspect ratio
+                const fgAspect = imagePreview.naturalWidth / imagePreview.naturalHeight;
+                const targetHeight = targetWidth / fgAspect;
+                const targetX = (canvas.width - targetWidth) / 2;
+                const targetY = (canvas.height - targetHeight) / 2;
+
+                // Draw Glossy Border Frame First (before clipping)
+                const borderRadius = 40; // High-res radius
+                
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(targetX + borderRadius, targetY);
+                ctx.lineTo(targetX + targetWidth - borderRadius, targetY);
+                ctx.quadraticCurveTo(targetX + targetWidth, targetY, targetX + targetWidth, targetY + borderRadius);
+                ctx.lineTo(targetX + targetWidth, targetY + targetHeight - borderRadius);
+                ctx.quadraticCurveTo(targetX + targetWidth, targetY + targetHeight, targetX + targetWidth - borderRadius, targetY + targetHeight);
+                ctx.lineTo(targetX + borderRadius, targetY + targetHeight);
+                ctx.quadraticCurveTo(targetX, targetY + targetHeight, targetX, targetY + targetHeight - borderRadius);
+                ctx.lineTo(targetX, targetY + borderRadius);
+                ctx.quadraticCurveTo(targetX, targetY, targetX + borderRadius, targetY);
+                ctx.closePath();
+                
+                // Draw Shadow for container
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+                ctx.shadowBlur = 40;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 15;
+                ctx.fillStyle = "#000000"; // fill background so shadow projects
+                ctx.fill();
+                
+                // Drop shadow so stroke doesn't have it
+                ctx.shadowColor = "transparent";
+                ctx.shadowBlur = 0;
+                
+                // Draw Border Stroke
+                ctx.lineWidth = 14; 
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.stroke();
+
+                // Clip and Draw the Screenshot Image itself perfectly
+                ctx.clip();
+                ctx.drawImage(imagePreview, targetX, targetY, targetWidth, targetHeight);
+                ctx.restore();
+            } else {
+                alert("Please upload a foreground screenshot first to download.");
+                return;
+            }
+
+            // Export to PNG
+            const link = document.createElement('a');
+            link.download = `instapost_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
